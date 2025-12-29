@@ -32,10 +32,12 @@ Schemas can be imported.
 - [ ] MySQL
 - JSON
 
-### `tbd show`
+### `tbd show` / `search`
 
 `tbd show` will list the schemas presently designed in "the hub" (see Concepts.)
 `tbd show {schema}` will display the detail of schema definition.
+
+`tbd search {term}` will fuzzy match schema names.
 
 Replace `tbd show` with `tbd edit` to modify the schema.
 

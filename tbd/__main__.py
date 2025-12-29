@@ -24,20 +24,23 @@ tbd impact
 """
 EPILOG = """verbs:
     import: add schema from an origin definition of tables.
-    e.g. `tbd --origin data/paycheckprediction_schemas.csv import`
+    `tbd --origin data/paycheckprediction_schemas.csv import`
     
     show: display tables or table 
-    e.g. `tbd show tablename`
+    `tbd show tablename`
+    
+    search: fuzzy match table names
+    `tbd search {q}`
     
     edit: modify a table schema
-    e.g. `tbd edit tablename`
+    `tbd edit tablename`
     
     impact: analyze downstream dependencies on schemas
-    e.g. `tbd impact main earnin`
+    `tbd impact main earnin`
     
     expose: add an known exposure. exposures define a dependency on data,
     which must be managed as data changes.
-    e.g. `tbd expose main earnin`
+    `tbd expose main earnin`
 """
 
 HUB = "hub"
@@ -90,6 +93,20 @@ def selected_tables(rest, origin):
             yield table
         elif table.name == target_table:
             yield table
+
+def search(*terms, origin):
+    """
+    fuzzy match tables
+    """
+    schema = schema_read(in_file=origin,
+                         schema_reader=from_source_yaml)
+    res = []
+    for table in schema:
+        for term in terms:
+            if term in table.name:
+                res.append(table)
+
+    return res
 
 def add_exposure(rest, dest):
     exp = Exposure(*rest)
@@ -148,6 +165,9 @@ def main():
             for table in selected_tables(args.rest, origin):
                 editor(table.filename)
 
+        case "search":
+            for table in search(*args.rest, origin=origin):
+                print(table.name)
         # egress
         case "export":
             for table in selected_tables(args.rest, origin):
