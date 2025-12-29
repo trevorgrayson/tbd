@@ -6,9 +6,12 @@ import logging
 from argparse import ArgumentParser
 from .schema import schema_read, write_table, table_print, from_source_yaml
 from .impact import impact
-from enum import Enum
 from os.path import join
 from .editor import editor
+from .models import Exposure
+from io import FileIO
+import yaml
+
 
 DATA_STORE = "databricks"
 
@@ -29,6 +32,9 @@ EPILOG = """verbs:
     impact: analyze downstream dependencies on schemas
     e.g. `tbd impact main earnin`
     
+    expose: add an known exposure. exposures define a dependency on data,
+    which must be managed as data changes.
+    e.g. `tbd expose main earnin`
 """
 
 HUB = "hub"
@@ -42,10 +48,10 @@ parser = ArgumentParser("data utilities",
                         )
 parser.add_argument("verb",
                     help="schema only supported at this time")
-# parser.add_argument("verb",
-#                     help="tra")
+
 parser.add_argument("--origin", dest="origin", default=HUB,
                     help="origin dataset, pipeline, or files to extract from. Defaults to the HUB.")
+
 parser.add_argument("--dest", default=HUB,
                     help="destination dataset, docs to act upon. Defaults to the HUB")
 
@@ -131,8 +137,15 @@ def main():
             ir.save("impact.graph")
             ir.write_report(".".join(dataset) + ".impact.tsv")
 
+        case "expose":
+            exp = Exposure(*args.rest)
+            with open(f"{dest}/{exp.name}.exposure.yaml", "w") as fp:
+                yaml.dump({"exposures": [exp.to_dict]}, fp)
+
         case _:
             raise NotImplementedError(f"Verb {args.verb} not implemented")
+
+
 
 
 if __name__ == "__main__":
