@@ -63,7 +63,8 @@ parser.add_argument("--database", default=None,
                     help="database name")
 parser.add_argument("--vendor", default=DATA_STORE,
                     help="database service")
-
+parser.add_argument("--format", default="spark",
+                    help="output format")
 parser.add_argument("rest", nargs=argparse.REMAINDER)
 
 if len(sys.argv) == 1:
@@ -106,9 +107,7 @@ def main():
 
     match args.verb:
         # ingress
-        case "import": # `schema` read in schema from# file
-            # TODO
-            print(origin)
+        case "import":
             schema = schema_read(in_file=origin)
             for table in schema:
                 print(table)
@@ -116,7 +115,6 @@ def main():
                 write_table(table,
                             database_name=args.database,
                             out_folder=dest)
-            print(f"{dest} is current")
 
         case "expose":
             exp = Exposure(*args.rest)
@@ -142,9 +140,8 @@ def main():
 
         # egress
         case "export":
-            format = 'spark'
             for table in selected_tables(args.rest, origin):
-                print(render(table, format_type=format))
+                print(render(table, format_type=args.format))
 
         case _:
             raise NotImplementedError(f"Verb {args.verb} not implemented")
