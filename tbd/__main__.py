@@ -42,7 +42,6 @@ EPILOG = """verbs:
 HUB = "hub"
 PRINT = "print"
 
-
 parser = ArgumentParser("data utilities",
                         formatter_class=argparse.RawTextHelpFormatter,
                         description="data utilities for business value.",
@@ -71,6 +70,23 @@ if len(sys.argv) == 1:
     parser.print_help()
     sys.exit(0)
 
+def selected_tables(rest, origin):
+    target_table = ""
+    tail = []
+    if len(rest) > 1:
+        *rest, target_table = rest
+    elif len(rest) == 1:
+        target_table = rest[0]
+
+    origin = join(origin, *tail)
+    schema = schema_read(in_file=origin,
+                         schema_reader=from_source_yaml)
+    for table in schema:
+        if not target_table:
+            yield table
+        elif table.name == target_table:
+            yield table
+
 def main():
     """
     controller for tbd verbs.
@@ -87,23 +103,6 @@ def main():
     dest = args.dest
     if dest == "hub":
         dest = args.hub
-
-    def selected_tables(origin):
-        target_table = ""
-        rest = []
-        if len(args.rest) > 1:
-            *rest, target_table = args.rest
-        elif len(args.rest) == 1:
-            target_table = args.rest[0]
-
-        origin = join(origin, *rest)
-        schema = schema_read(in_file=origin,
-                             schema_reader=from_source_yaml)
-        for table in schema:
-            if not target_table:
-                yield table
-            elif table.name == target_table:
-                yield table
 
     match args.verb:
         # ingress
@@ -134,17 +133,17 @@ def main():
 
         # view/modify
         case "show":
-            for table in selected_tables(origin):
+            for table in selected_tables(args.rest, origin):
                 print(table)
 
         case "edit":
-            for table in selected_tables(origin):
+            for table in selected_tables(args.rest, origin):
                 editor(table.filename)
 
         # egress
         case "export":
             format = 'spark'
-            for table in selected_tables(origin):
+            for table in selected_tables(args.rest, origin):
                 print(render(table, format_type=format))
 
         case _:
