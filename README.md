@@ -7,29 +7,48 @@ Key Features:
   - define schemas
   - document schemas
   - make new schemas available for query
-- data impact reports
+- exposures - define uses of data (dashboards, reports, ML models, etc)
 
 ## Schemas
 
 Utilities can be used to gather, define, and transfer schemas between systems.
 
-- Get established schemas from databases: MySQL, Spark/Databricks
+- Get established schemas from databases: MySQL, Spark/Databricks, csv
 - pidgin schema definitions
 
 A "hub & spoke" model is used to effectively gather and transfer to other systems.
 
-- DBT Sources (virtually all data products)
-- ANSI SQL DDLs
-- TSV, JSON
+### `tbd import` schema
 
-## `tbd impact`
+Schemas can be imported.
 
-presently databricks only
-```
-tbd impact {catalog} {schema}
-```
+- [x] TSV, CSV
+- [x] YAML
+- [x] DBT Sources (virtually all data products)
+- [ ] Spark/Databricks
+- [ ] ANSI SQL DDLs
+- [ ] MySQL
+- JSON
 
-## the "hub"
+### `tbd export` schema
+
+Schemas can be exported.
+
+- [ ] Spark DDL Strings [in progress]
+- [ ] ANSI SQL DDLs
+
+## Exposures
+
+Define uses of data.  Examples of exposures include: 
+dashboards, reports, ML models, and data products.
+
+Defining owners and impact before making changes will 
+help communicate changes to stakeholders.
+
+
+## Concepts
+
+### the "hub"
 
 the `datahub` folder acts as a working directory, or potentially the definition of, your datasets.
 

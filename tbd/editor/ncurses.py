@@ -2,16 +2,16 @@ import curses
 import yaml
 from pathlib import Path
 from collections import OrderedDict
-from tbd.models import Database, Table, Column
+from tbd.models import *
 
+# ---------- YAML ↔ MODELS ----------
 
-# ---------- YAML → MODELS ----------
 
 def load_database_from_dbt(path: Path) -> Database:
     with open(path) as f:
         raw = yaml.safe_load(f)
 
-    source = raw["sources"][0]  # single-source editing for now
+    source = raw["sources"][0]  # single-source assumption
     db = Database(source["name"])
 
     for t in source.get("tables", []):
@@ -34,7 +34,6 @@ def write_database_to_dbt(db: Database, raw: dict):
 
 def edit_dbt_sources_curses(path: str | Path):
     path = Path(path)
-
     db, raw = load_database_from_dbt(path)
 
     def curses_app(stdscr):
@@ -42,124 +41,166 @@ def edit_dbt_sources_curses(path: str | Path):
         stdscr.keypad(True)
 
         table_idx = 0
-        col_idx = 0
-        view = "tables"  # tables | columns | edit
+        field_idx = 0
 
-        def draw():
+        def safe_addstr(y, x, text, attr=0):
+            try:
+                h, w = stdscr.getmaxyx()
+                if y < 0 or y >= h:
+                    return
+                if x < 0 or x >= w:
+                    return
+                max_len = w - x - 1
+                if max_len <= 0:
+                    return
+                stdscr.addstr(y, x, text[:max_len], attr)
+            except curses.error:
+                pass
+
+        def text_input(y, x, prompt, initial=""):
+            curses.echo()
+            safe_addstr(y, x, prompt)
+            stdscr.clrtoeol()
+            value = stdscr.getstr(y, x + len(prompt)).decode()
+            curses.noecho()
+            return value if value else initial
+
+        while True:
             stdscr.clear()
             h, w = stdscr.getmaxyx()
+            split = max(24, w // 4)
 
-            stdscr.addstr(0, 2, f"dbt Source Editor — {path}", curses.A_BOLD)
+            # ---------- LEFT PANE ----------
+            safe_addstr(0, 2, "Tables", curses.A_BOLD)
+            for i, table in enumerate(db.tables):
+                attr = curses.A_REVERSE if i == table_idx else 0
+                safe_addstr(2 + i, 2, table.name[: split - 4], attr)
 
-            if view == "tables":
-                stdscr.addstr(2, 2, "Tables", curses.A_UNDERLINE)
-                for i, t in enumerate(db.tables):
-                    attr = curses.A_REVERSE if i == table_idx else 0
-                    stdscr.addstr(4 + i, 4, t.name, attr)
+            # ---------- RIGHT PANE ----------
+            table = db.tables[table_idx]
+            x0 = split + 2
+            y = 1
 
-            elif view == "columns":
-                table = db.tables[table_idx]
-                stdscr.addstr(2, 2, f"Columns — {table.name}", curses.A_UNDERLINE)
-                for i, c in enumerate(table.columns):
-                    label = f"{c.name} : {c.dtype}"
-                    if c.primary_key:
-                        label += " [PK]"
-                    attr = curses.A_REVERSE if i == col_idx else 0
-                    stdscr.addstr(4 + i, 4, label, attr)
+            safe_addstr(y, x0, f"Table: {table.name}", curses.A_BOLD)
+            y += 2
 
-            elif view == "edit":
-                table = db.tables[table_idx]
-                col = table.columns[col_idx]
-                stdscr.addstr(2, 2, f"Edit Column — {col.name}", curses.A_UNDERLINE)
-                stdscr.addstr(4, 4, f"n Name        : {col.name}")
-                stdscr.addstr(5, 4, f"t Type        : {col.dtype}")
-                stdscr.addstr(6, 4, f"u Nullable    : {col.nullable}")
-                stdscr.addstr(7, 4, f"p Primary Key : {col.primary_key}")
-                stdscr.addstr(8, 4, f"q Unique      : {col.unique}")
-                stdscr.addstr(9, 4, f"d Description : {col.metadata.get('description')}")
+            fields = [("Table description", table.description)]
 
-            stdscr.addstr(
+            for col in table.columns:
+                fields.extend([
+                    (f"Column: {col.name}", None),
+                    ("  name", col.name),
+                    ("  type", col.dtype),
+                    ("  nullable", col.nullable),
+                    ("  primary_key", col.primary_key),
+                    ("  unique", col.unique),
+                    ("  description", col.metadata.get("description")),
+                ])
+
+            # Render fields
+            cursor_y_positions = []
+            for i, (label, value) in enumerate(fields):
+                attr = curses.A_REVERSE if i == field_idx else 0
+                line = f"{label:<20} : {value}"
+                safe_addstr(y, x0, line[: w - x0 - 2], attr)
+                cursor_y_positions.append(y)
+                y += 1
+
+            # Footer
+            safe_addstr(
                 h - 1,
                 2,
-                "↑↓ Navigate  Enter Select  e Edit  a Add  r Rename  d Delete  s Save  q Quit",
+                "↑↓ Navigate  Enter Edit  Space Toggle  a Add Col  r Rename  d Delete  s Save  q Quit",
                 curses.A_DIM,
             )
 
             stdscr.refresh()
 
-        def text_input(prompt, initial=""):
-            curses.echo()
-            stdscr.addstr(prompt)
-            stdscr.clrtoeol()
-            val = stdscr.getstr().decode()
-            curses.noecho()
-            return val if val else initial
-
-        while True:
-            draw()
             key = stdscr.getch()
 
+            # ---------- GLOBAL ----------
             if key == ord("q"):
                 break
-
-            if view == "tables":
-                if key == curses.KEY_UP:
-                    table_idx = max(0, table_idx - 1)
-                elif key == curses.KEY_DOWN:
-                    table_idx = min(len(db.tables) - 1, table_idx + 1)
-                elif key in (10, curses.KEY_ENTER):
-                    view = "columns"
-                    col_idx = 0
-
-            elif view == "columns":
-                table = db.tables[table_idx]
-
-                if key == curses.KEY_UP:
-                    col_idx = max(0, col_idx - 1)
-                elif key == curses.KEY_DOWN:
-                    col_idx = min(len(table.columns) - 1, col_idx + 1)
-                elif key == ord("a"):
-                    name = text_input("New column name: ")
-                    dtype = text_input("Type: ")
-                    table.add_column(Column(name=name, dtype=dtype))
-                elif key == ord("r"):
-                    old = table.columns[col_idx].name
-                    new = text_input(f"Rename {old} → ")
-                    table.rename_column(old, new)
-                elif key == ord("d"):
-                    name = table.columns[col_idx].name
-                    table._columns.pop(name)
-                    col_idx = max(0, col_idx - 1)
-                elif key == ord("e"):
-                    view = "edit"
-                elif key == 27:
-                    view = "tables"
-
-            elif view == "edit":
-                table = db.tables[table_idx]
-                col = table.columns[col_idx]
-
-                if key == ord("n"):
-                    col.name = text_input("Name: ", col.name)
-                elif key == ord("t"):
-                    col.dtype = text_input("Type: ", col.dtype)
-                elif key == ord("u"):
-                    col.nullable = not bool(col.nullable)
-                elif key == ord("p"):
-                    col.primary_key = not bool(col.primary_key)
-                elif key == ord("q"):
-                    col.unique = not bool(col.unique)
-                elif key == ord("d"):
-                    col.metadata["description"] = text_input(
-                        "Description: ",
-                        col.metadata.get("description", ""),
-                    )
-                elif key == 27:
-                    view = "columns"
 
             if key == ord("s"):
                 write_database_to_dbt(db, raw)
                 with open(path, "w") as f:
                     yaml.safe_dump(raw, f, sort_keys=False)
+
+            # ---------- TABLE NAV ----------
+            if key == curses.KEY_LEFT:
+                table_idx = max(0, table_idx - 1)
+                field_idx = 0
+            elif key == curses.KEY_RIGHT:
+                table_idx = min(len(db.tables) - 1, table_idx + 1)
+                field_idx = 0
+
+            # ---------- FIELD NAV ----------
+            elif key == curses.KEY_UP:
+                field_idx = max(0, field_idx - 1)
+            elif key == curses.KEY_DOWN:
+                field_idx = min(len(fields) - 1, field_idx + 1)
+
+            # ---------- EDIT ----------
+            elif key in (10, curses.KEY_ENTER):
+                label, value = fields[field_idx]
+
+                if label == "Table description":
+                    table.description = text_input(
+                        cursor_y_positions[field_idx],
+                        x0,
+                        "Table description: ",
+                        table.description or "",
+                    )
+
+                elif label.strip() == "name":
+                    col = table.columns[(field_idx - 1) // 7]
+                    new = text_input(
+                        cursor_y_positions[field_idx],
+                        x0,
+                        "Column name: ",
+                        col.name,
+                    )
+                    table.rename_column(col.name, new)
+
+                elif label.strip() == "type":
+                    col = table.columns[(field_idx - 2) // 7]
+                    col.dtype = text_input(
+                        cursor_y_positions[field_idx],
+                        x0,
+                        "Type: ",
+                        col.dtype,
+                    )
+
+                elif label.strip() == "description":
+                    col = table.columns[(field_idx - 6) // 7]
+                    col.metadata["description"] = text_input(
+                        cursor_y_positions[field_idx],
+                        x0,
+                        "Description: ",
+                        col.metadata.get("description", ""),
+                    )
+
+            # ---------- TOGGLES ----------
+            elif key == ord(" "):
+                label, _ = fields[field_idx]
+                if label.strip() in {"nullable", "primary_key", "unique"}:
+                    col = table.columns[(field_idx - 3) // 7]
+                    setattr(col, label.strip(), not bool(getattr(col, label.strip())))
+
+            # ---------- COLUMN OPS ----------
+            elif key == ord("a"):
+                name = text_input(h - 3, 2, "New column name: ")
+                dtype = text_input(h - 2, 2, "Type: ")
+                table.add_column(Column(name=name, dtype=dtype))
+
+            elif key == ord("d"):
+                label, _ = fields[field_idx]
+                if label.startswith("Column:"):
+                    col_name = label.split(":", 1)[1].strip()
+                    table._columns.pop(col_name)
+                    field_idx = max(0, field_idx - 1)
+
+        curses.endwin()
 
     curses.wrapper(curses_app)

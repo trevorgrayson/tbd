@@ -4,6 +4,8 @@ Schema extraction
 import argparse, sys
 import logging
 from argparse import ArgumentParser
+
+from tbd.schema.formatters import render
 from .schema import schema_read, write_table, table_print, from_source_yaml
 from .impact import impact
 from os.path import join
@@ -62,6 +64,7 @@ parser.add_argument("--database", default=None,
                     help="database name")
 parser.add_argument("--vendor", default=DATA_STORE,
                     help="database service")
+
 parser.add_argument("rest", nargs=argparse.REMAINDER)
 
 if len(sys.argv) == 1:
@@ -85,7 +88,25 @@ def main():
     if dest == "hub":
         dest = args.hub
 
+    def selected_tables(origin):
+        target_table = ""
+        rest = []
+        if len(args.rest) > 1:
+            *rest, target_table = args.rest
+        elif len(args.rest) == 1:
+            target_table = args.rest[0]
+
+        origin = join(origin, *rest)
+        schema = schema_read(in_file=origin,
+                             schema_reader=from_source_yaml)
+        for table in schema:
+            if not target_table:
+                yield table
+            elif table.name == target_table:
+                yield table
+
     match args.verb:
+        # ingress
         case "import": # `schema` read in schema from# file
             # TODO
             print(origin)
@@ -98,36 +119,10 @@ def main():
                             out_folder=dest)
             print(f"{dest} is current")
 
-        case "show":
-            target_table = ""
-            rest = []
-            if len(args.rest) > 1:
-                *rest, target_table = args.rest
-            elif len(args.rest) == 1:
-                target_table = args.rest[0]
-
-            origin = join(origin, *rest)
-            schema = schema_read(in_file=origin,
-                                 schema_reader=from_source_yaml)
-            for table in schema:
-                if not target_table:
-                    print(table.name)
-                elif table.name == target_table:
-                    print(table)
-
-        case "edit":
-            rest = []
-            if len(args.rest) > 1:
-                *rest, target_table = args.rest
-            elif len(args.rest) == 1:
-                target_table = args.rest[0]
-
-            origin = join(origin, *rest)
-            schema = schema_read(in_file=origin,
-                                 schema_reader=from_source_yaml)
-            for table in schema:
-                if table.name == target_table:
-                    editor(table.filename)
+        case "expose":
+            exp = Exposure(*args.rest)
+            with open(f"{dest}/{exp.name}.exposure.yaml", "w") as fp:
+                yaml.dump({"exposures": [exp.to_dict]}, fp)
 
         case "impact":
             # TODO, needs testing
@@ -137,10 +132,20 @@ def main():
             ir.save("impact.graph")
             ir.write_report(".".join(dataset) + ".impact.tsv")
 
-        case "expose":
-            exp = Exposure(*args.rest)
-            with open(f"{dest}/{exp.name}.exposure.yaml", "w") as fp:
-                yaml.dump({"exposures": [exp.to_dict]}, fp)
+        # view/modify
+        case "show":
+            for table in selected_tables(origin):
+                print(table)
+
+        case "edit":
+            for table in selected_tables(origin):
+                editor(table.filename)
+
+        # egress
+        case "export":
+            format = 'spark'
+            for table in selected_tables(origin):
+                print(render(table, format_type=format))
 
         case _:
             raise NotImplementedError(f"Verb {args.verb} not implemented")
