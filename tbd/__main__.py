@@ -13,6 +13,7 @@ from .editor import editor
 from .models import Exposure
 from io import FileIO
 import yaml
+from tbd import utils
 
 
 DATA_STORE = "databricks"
@@ -65,6 +66,8 @@ parser.add_argument("--vendor", default=DATA_STORE,
                     help="database service")
 parser.add_argument("--format", default="spark",
                     help="output format")
+parser.add_argument("-v", "--verbose", action="store_true",
+                    help="print more")
 parser.add_argument("rest", nargs=argparse.REMAINDER)
 
 if len(sys.argv) == 1:
@@ -87,6 +90,11 @@ def selected_tables(rest, origin):
             yield table
         elif table.name == target_table:
             yield table
+
+def add_exposure(rest, dest):
+    exp = Exposure(*rest)
+    with open(f"{dest}/{exp.name}.exposure.yaml", "w") as fp:
+        yaml.dump({"exposures": [exp.to_dict]}, fp)
 
 def main():
     """
@@ -117,9 +125,7 @@ def main():
                             out_folder=dest)
 
         case "expose":
-            exp = Exposure(*args.rest)
-            with open(f"{dest}/{exp.name}.exposure.yaml", "w") as fp:
-                yaml.dump({"exposures": [exp.to_dict]}, fp)
+            add_exposure(args.rest, dest)
 
         case "impact":
             # TODO, needs testing
@@ -131,8 +137,12 @@ def main():
 
         # view/modify
         case "show":
-            for table in selected_tables(args.rest, origin):
-                print(table)
+            tables = list(selected_tables(args.rest, origin))
+            if len(tables) == 1:
+                print(tables[0])
+            else:
+                names = [table.name for table in tables]
+                utils.ls(names, args.verbose)
 
         case "edit":
             for table in selected_tables(args.rest, origin):
@@ -142,6 +152,10 @@ def main():
         case "export":
             for table in selected_tables(args.rest, origin):
                 print(render(table, format_type=args.format))
+                ans = input("Add an exposure?")
+                if ans.lower() != "n":
+                    add_exposure(args.rest, dest)
+
 
         case _:
             raise NotImplementedError(f"Verb {args.verb} not implemented")

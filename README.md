@@ -1,6 +1,6 @@
 # tbd
 
-Data utilities for effective Data Engineers
+Data utilities for defining datasets and aggregating metadata.
 
 Key Features:
 - hub-and-spoke schema management
@@ -8,6 +8,8 @@ Key Features:
   - document schemas
   - make new schemas available for query
 - exposures - define uses of data (dashboards, reports, ML models, etc)
+
+Try `tbd -h` on the commandline to get started.
 
 ## Schemas
 
@@ -30,11 +32,22 @@ Schemas can be imported.
 - [ ] MySQL
 - JSON
 
+### `tbd show`
+
+`tbd show` will list the schemas presently designed in "the hub" (see Concepts.)
+`tbd show {schema}` will display the detail of schema definition.
+
+Replace `tbd show` with `tbd edit` to modify the schema.
+
+### `tbd edit`
+
+Update an existing schema. See `tbd show`.
+
 ### `tbd export` schema
 
 Schemas can be exported.
 
-- [ ] Spark DDL Strings [in progress]
+- [x] Spark DDL Strings
 - [ ] ANSI SQL DDLs
 
 ## Exposures
