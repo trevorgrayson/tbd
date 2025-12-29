@@ -3,18 +3,12 @@
 Data utilities for effective Data Engineers
 
 Key Features:
-- data impact reports
 - hub-and-spoke schema management
   - define schemas
   - document schemas
   - make new schemas available for query
+- data impact reports
 
-# `tbd impact`
-
-presently databricks only
-```
-tbd impact {catalog} {schema}
-```
 ## Schemas
 
 Utilities can be used to gather, define, and transfer schemas between systems.
@@ -27,6 +21,13 @@ A "hub & spoke" model is used to effectively gather and transfer to other system
 - DBT Sources (virtually all data products)
 - ANSI SQL DDLs
 - TSV, JSON
+
+## `tbd impact`
+
+presently databricks only
+```
+tbd impact {catalog} {schema}
+```
 
 ## the "hub"
 

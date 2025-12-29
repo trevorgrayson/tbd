@@ -1,4 +1,5 @@
 import json
+from collections import OrderedDict
 
 
 class Column:
@@ -28,6 +29,26 @@ class Column:
             self.nullable = False
             self.unique = True
 
+
+    def to_dict(self):
+        data = {"name": self.name}
+        if self.dtype is not None:
+            data["data_type"] = self.dtype
+        if self.description is not None:
+            data["description"] = self.description
+        if self.nullable is not None:
+            data["nullable"] = self.nullable
+        if self.default is not None:
+            data["default"] = self.default
+        if self.unique:
+            data["unique"] = True
+        if self.primary_key:
+            data["primary_key"] = True
+        if self.metadata:
+            data["meta"] = self.metadata
+        return data
+
+
     def __repr__(self):
         flags = []
         if self.primary_key:
@@ -44,7 +65,7 @@ class Column:
 class Table:
     def __init__(self, name, columns, **kwargs):
         self.name = name
-        self._columns = {}
+        self._columns = OrderedDict()
         self.description = kwargs.get("description")
         self.filename = kwargs.get("filename")
 
@@ -52,6 +73,13 @@ class Table:
             self.add_column(col)
 
         self._validate_primary_key()
+
+    def rename_column(self, old_name, new_name):
+        if new_name in self._columns:
+            raise ValueError(f"Column '{new_name}' already exists")
+        col = self._columns.pop(old_name)
+        col.name = new_name
+        self._columns[new_name] = col
 
     def add_column(self, column):
         if isinstance(column, dict):
@@ -62,6 +90,12 @@ class Table:
             )
         self._columns[column.name] = column
 
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "description": self.description,
+            "columns": [c.to_dict() for c in self.columns],
+        }
     def _validate_primary_key(self):
         pks = [c for c in self._columns.values() if c.primary_key]
         if len(pks) > 1:
@@ -142,7 +176,7 @@ class ImpactReport:
                 "\t".join(["dataset", "owner", "created_by", "updated_by", "email"])
             )
             for dataset, d in self.graph.items():
-                metadata = d["metadata"]
+                metadata = d["meta"]
                 downstream = d["downstream"]
                 f.write(
                     "\t".join(map(str,

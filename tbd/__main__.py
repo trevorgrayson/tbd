@@ -2,6 +2,7 @@
 Schema extraction
 """
 import argparse, sys
+import logging
 from argparse import ArgumentParser
 from .schema import schema_read, write_table, table_print, from_source_yaml
 from .impact import impact
@@ -72,7 +73,7 @@ def main():
     origin = args.origin
     if origin == HUB:
         origin = args.hub
-    print(f"origin: {origin}")
+    logging.info(f"origin: {origin}")
 
     dest = args.dest
     if dest == "hub":
@@ -92,7 +93,13 @@ def main():
             print(f"{dest} is current")
 
         case "show":
-            *rest, target_table = args.rest
+            target_table = ""
+            rest = []
+            if len(args.rest) > 1:
+                *rest, target_table = args.rest
+            elif len(args.rest) == 1:
+                target_table = args.rest[0]
+
             origin = join(origin, *rest)
             schema = schema_read(in_file=origin,
                                  schema_reader=from_source_yaml)
@@ -103,7 +110,12 @@ def main():
                     print(table)
 
         case "edit":
-            *rest, target_table = args.rest
+            rest = []
+            if len(args.rest) > 1:
+                *rest, target_table = args.rest
+            elif len(args.rest) == 1:
+                target_table = args.rest[0]
+
             origin = join(origin, *rest)
             schema = schema_read(in_file=origin,
                                  schema_reader=from_source_yaml)

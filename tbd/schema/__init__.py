@@ -97,7 +97,7 @@ def write_table(table, out_folder=None, database_name=None, formatter=None):
         out_fp.write(formatter(table, database_name))
 
 
-def schema_read(schema_reader=None, **kwargs):
+def schema_read(schema_reader=None, recurse=True, **kwargs):
     """
     SHOULD return iterable schema object.
     :param args:
@@ -110,6 +110,11 @@ def schema_read(schema_reader=None, **kwargs):
         in_file = join(in_file, '*')
 
     for filename in glob(in_file):
+        if recurse and isdir(filename):
+            for subtable in schema_read(schema_reader,
+                                        in_file=filename):
+                yield subtable
+
         if not isfile(filename):
             continue
 

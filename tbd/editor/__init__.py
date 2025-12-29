@@ -1,10 +1,12 @@
 import subprocess
 from os import environ
+from .ncurses import edit_dbt_sources_curses
 
 EDITOR = environ.get("EDITOR")
 
 def editor(filename):
-    # TODO if editor == 'ncurses',
+    if EDITOR == 'ncurses':
+        edit_dbt_sources_curses(filename)
     # present ncurses form editor
     # user should be able to fill out standard DBT Source YAML fields,
     # ownership, and contact information including a team, email,
