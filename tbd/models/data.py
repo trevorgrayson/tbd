@@ -62,13 +62,13 @@ class Column:
 
 
 class Table:
-    def __init__(self, name, columns, **kwargs):
+    def __init__(self, name, columns=None, **kwargs):
         self.name = name
         self._columns = OrderedDict()
         self.description = kwargs.get("description")
         self.filename = kwargs.get("filename")
 
-        for col in columns:
+        for col in columns or []:
             self.add_column(col)
 
         self._validate_primary_key()
