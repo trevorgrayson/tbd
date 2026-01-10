@@ -11,6 +11,7 @@ class Column:
         primary_key=None,
         unique=None,
         metadata=None,
+        description=None,
         **extra
     ):
         if not name or not isinstance(name, str):
@@ -22,6 +23,7 @@ class Column:
         self.default = default
         self.primary_key = primary_key
         self.unique = unique
+        self.description = description
         self.metadata = metadata or {}
 
         if self.primary_key:
